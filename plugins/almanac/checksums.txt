@@ -1,0 +1,1 @@
+# sha256  asset - written by the release workflow, one line per platform

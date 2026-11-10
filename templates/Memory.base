@@ -1,0 +1,72 @@
+# Claude Code nests a memory note's fields under `metadata:`, and notes written by hand may
+# keep them at the top level. Each formula reads the field from either place.
+filters:
+  and:
+    - 'file.ext == "md"'
+    - 'file.name != "MEMORY.md"'
+
+formulas:
+  stage: 'if(note.stage, note.stage, note.metadata.stage)'
+  status: 'if(note.status, note.status, note.metadata.status)'
+  type: 'if(note.type, note.type, note.metadata.type)'
+  verified_on: 'if(note.verified_on, note.verified_on, note.metadata.verified_on)'
+  project: 'file.folder'
+  age_days: 'if(formula.verified_on, (today() - date(formula.verified_on)).days, "")'
+
+properties:
+  formula.stage:
+    displayName: Stage
+  formula.type:
+    displayName: Type
+  formula.verified_on:
+    displayName: Verified on
+  formula.project:
+    displayName: Project
+  formula.age_days:
+    displayName: "Days since check"
+
+views:
+  - type: table
+    name: Rules
+    filters:
+      and:
+        - 'formula.stage == "rule"'
+        - 'formula.status != "superseded"'
+    groupBy:
+      property: formula.type
+      direction: ASC
+    order:
+      - file.name
+      - description
+      - formula.project
+      - formula.verified_on
+
+  - type: table
+    name: Needs verification
+    filters:
+      and:
+        - 'formula.stage != "rule"'
+        - 'formula.stage != "verified"'
+        - 'formula.status != "superseded"'
+    order:
+      - file.name
+      - description
+      - formula.type
+      - formula.project
+      - file.mtime
+
+  - type: table
+    name: Stale
+    filters:
+      and:
+        - 'formula.stage == "verified" || formula.stage == "rule"'
+        - 'formula.status != "superseded"'
+        - or:
+            - '!formula.verified_on'
+            - 'date(formula.verified_on) < today() - "180d"'
+    order:
+      - file.name
+      - formula.stage
+      - formula.project
+      - formula.verified_on
+      - formula.age_days

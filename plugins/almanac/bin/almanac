@@ -1,0 +1,52 @@
+#!/bin/sh
+# Runs the almanac binary for this platform. On first use it downloads the binary from the
+# GitHub release that matches this plugin's version, and runs it only if its SHA-256 matches
+# checksums.txt, which is committed next to this script.
+set -eu
+
+if [ -n "${ALMANAC_BIN:-}" ]; then
+  exec "$ALMANAC_BIN" "$@"
+fi
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+repo=BonnardValentin/almanac
+version=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$root/.claude-plugin/plugin.json")
+
+case "$(uname -s)-$(uname -m)" in
+  Darwin-arm64) target=aarch64-apple-darwin ;;
+  Darwin-x86_64) target=x86_64-apple-darwin ;;
+  Linux-x86_64) target=x86_64-unknown-linux-musl ;;
+  Linux-aarch64 | Linux-arm64) target=aarch64-unknown-linux-musl ;;
+  *) echo "almanac: no build for $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+esac
+
+dir=${CLAUDE_PLUGIN_DATA:-${XDG_CACHE_HOME:-$HOME/.cache}/almanac}/bin/$version
+bin=$dir/almanac
+
+if [ ! -x "$bin" ]; then
+  asset=almanac-$target.tar.gz
+  expected=$(awk -v a="$asset" '$2 == a { print $1 }' "$root/checksums.txt")
+  if [ -z "$expected" ]; then
+    echo "almanac: checksums.txt has no entry for $asset in v$version" >&2
+    exit 1
+  fi
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  curl -fsSL -o "$tmp/$asset" "https://github.com/$repo/releases/download/v$version/$asset"
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual=$(sha256sum "$tmp/$asset" | cut -d' ' -f1)
+  else
+    actual=$(shasum -a 256 "$tmp/$asset" | cut -d' ' -f1)
+  fi
+  if [ "$actual" != "$expected" ]; then
+    echo "almanac: checksum mismatch for $asset, refusing to run it" >&2
+    exit 1
+  fi
+  tar -xzf "$tmp/$asset" -C "$tmp"
+  mkdir -p "$dir"
+  # mv within one filesystem is atomic, so two hooks downloading at once cannot leave a half-written binary.
+  mv "$tmp/almanac" "$dir/almanac.$$"
+  mv "$dir/almanac.$$" "$bin"
+fi
+
+exec "$bin" "$@"

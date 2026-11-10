@@ -1,0 +1,13 @@
+{
+  "name": "almanac",
+  "owner": { "name": "Valentin Bonnard" },
+  "description": "almanac: agent memory for Claude Code that keeps only verified rules in every session.",
+  "allowCrossMarketplaceDependenciesOn": ["obsidian-skills"],
+  "plugins": [
+    {
+      "name": "almanac",
+      "source": "./plugins/almanac",
+      "description": "Agent memory as an Obsidian vault of verified rules, with hooks that gate shell commands and make sessions write what they learn."
+    }
+  ]
+}
