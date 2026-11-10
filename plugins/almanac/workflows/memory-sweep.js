@@ -93,7 +93,8 @@ const checked = await pipeline(
   notes,
   (note) =>
     agent(
-      `Read the memory note at ${note.path}. List every claim in it that can be checked against the ` +
+      `Read the memory note at ${note.path}. Ignore its frontmatter: those fields are bookkeeping, not claims. ` +
+        `List every claim in the body that can be checked against the ` +
         `repository at ${repo} or its tooling: a file path, a flag, an identifier, a command, a setting. ` +
         `Write each claim as one short sentence and say how to check it. Do not judge whether a claim is true. ` +
         `A [[wikilink]] is not a claim: links to notes that do not exist yet are allowed. ` +
@@ -125,12 +126,13 @@ if (done.length < notes.length)
 
 function firstVerdict({ note, results }) {
   const broken = results.filter((r) => r.holds === 'no');
+  // One check can misread a note, so a broken claim flags it for the user instead of retiring it.
   if (broken.length > 0) {
     const what = broken.map((r) => `${r.claim} (${r.evidence})`).join('; ');
     return {
       path: note.path,
-      verdict: 'superseded',
-      reason: `claims no longer hold: ${what}`,
+      verdict: 'investigate',
+      reason: `needs review, claims did not hold: ${what}`,
     };
   }
   if (results.length > 0 && results.every((r) => r.holds === 'yes')) {
