@@ -2,10 +2,14 @@
   "name": "almanac",
   "version": "0.1.0",
   "description": "Agent memory as an Obsidian vault of verified rules, with hooks that gate shell commands and make sessions write what they learn.",
-  "author": { "name": "Valentin Bonnard" },
+  "author": {
+    "name": "Valentin Bonnard"
+  },
   "repository": "https://github.com/BonnardValentin/almanac",
   "license": "MIT",
-  "dependencies": ["obsidian@obsidian-skills"],
+  "dependencies": [
+    "obsidian@obsidian-skills"
+  ],
   "userConfig": {
     "vault": {
       "type": "directory",
@@ -17,7 +21,11 @@
       "type": "string",
       "title": "Gate mode",
       "description": "off: no gate. shadow: hard rules apply, classifier decisions are only logged. enforce: classifier decisions apply too.",
-      "options": ["off", "shadow", "enforce"],
+      "options": [
+        "off",
+        "shadow",
+        "enforce"
+      ],
       "default": "shadow"
     },
     "typesafe_api_key": {
