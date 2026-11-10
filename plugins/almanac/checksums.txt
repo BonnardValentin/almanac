@@ -1,5 +1,5 @@
 # sha256  asset - written by the release workflow, one line per platform
-69bb0fb9323523a87eadb582fc0fcd56a22d2cd06ee515371f58d85aec5721db  almanac-aarch64-apple-darwin.tar.gz
-9cb4268f04b61c3ba8155a27097f0fe549bc9c063217da87fd7d10732f62d63a  almanac-aarch64-unknown-linux-musl.tar.gz
-e2cbe4863df869d400bc6cb6c56ea39e948cd42e00b1375ac0cc3983dec0d11f  almanac-x86_64-apple-darwin.tar.gz
-b3f711a955165d626741006a12fef2b12aba76cc792d6265416d7d3d28e1be4b  almanac-x86_64-unknown-linux-musl.tar.gz
+8645fce5daee0dbe4b6c14827c244e6062b997653edc3715f7469a97fd30eb25  almanac-aarch64-apple-darwin.tar.gz
+5302df2aa8ad46e9fc6912cd941d314459c9f95344534dd4f4fe27c0c318ee32  almanac-aarch64-unknown-linux-musl.tar.gz
+fc4335d5b796b722716ea842e5026bca844596fc69108c94ff6e5b961c4cc366  almanac-x86_64-apple-darwin.tar.gz
+52c65cf47608a343ae6e807091d2216f839f091cbb992b79ffef86e1f9aae9f8  almanac-x86_64-unknown-linux-musl.tar.gz

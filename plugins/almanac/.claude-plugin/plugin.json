@@ -1,6 +1,6 @@
 {
   "name": "almanac",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Agent memory as an Obsidian vault of verified rules, with hooks that gate shell commands and make sessions write what they learn.",
   "author": {
     "name": "Valentin Bonnard"
