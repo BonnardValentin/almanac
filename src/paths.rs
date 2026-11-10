@@ -19,8 +19,8 @@ pub fn data_dir() -> Res<PathBuf> {
     Ok(dir)
 }
 
-/// The main checkout of the repository that holds `cwd`, so every worktree of a repo
-/// shares one memory folder, the same way Claude Code's own auto-memory does.
+/// The main checkout of the repository that holds `cwd`. Claude Code keys auto-memory on it,
+/// so every worktree of a repo shares one memory folder.
 pub fn repo_root(cwd: &Path) -> PathBuf {
     let out = Command::new("git")
         .arg("-C")
@@ -38,71 +38,103 @@ pub fn repo_root(cwd: &Path) -> PathBuf {
     }
 }
 
-pub fn memory_dir(vault: &Path, cwd: &Path) -> PathBuf {
-    let root = repo_root(cwd);
-    let name = root
+/// Claude Code's own memory folder for the repo. The notes live here, where Claude Code can
+/// write them without a permission prompt. The vault only links to it.
+pub fn memory_dir(cwd: &Path) -> Res<PathBuf> {
+    let home = std::env::var_os("HOME").ok_or("HOME is not set")?;
+    Ok(PathBuf::from(home)
+        .join(".claude/projects")
+        .join(project_slug(&repo_root(cwd)))
+        .join("memory"))
+}
+
+/// How Claude Code names a project's folder: every character but a letter or digit becomes `-`.
+fn project_slug(root: &Path) -> String {
+    root.to_string_lossy()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect()
+}
+
+/// The project's folder in the vault: a symlink to `memory_dir`, named after the repo.
+pub fn vault_link(vault: &Path, cwd: &Path) -> PathBuf {
+    let name = repo_root(cwd)
         .file_name()
         .map_or_else(|| "root".to_string(), |n| n.to_string_lossy().into_owned());
     vault.join(name)
 }
 
-/// Where Claude Code keeps a project's memory when `autoMemoryDirectory` is not set.
-pub fn default_memory_dir(cwd: &Path) -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
-    let slug = repo_root(cwd).to_string_lossy().replace(['/', '.'], "-");
-    Some(
-        PathBuf::from(home)
-            .join(".claude/projects")
-            .join(slug)
-            .join("memory"),
-    )
+pub fn is_linked(vault: &Path, cwd: &Path) -> bool {
+    let (Ok(link), Ok(dir)) = (
+        vault_link(vault, cwd).canonicalize(),
+        memory_dir(cwd).and_then(|d| Ok(d.canonicalize()?)),
+    ) else {
+        return false;
+    };
+    link == dir
 }
 
-pub fn settings_file(cwd: &Path) -> PathBuf {
-    repo_root(cwd).join(".claude/settings.local.json")
-}
-
-/// The memory folder `mem` commands work on: `--dir`, else the vault folder for the current repo.
+/// The memory folder `mem` commands work on: `--dir`, else the current repo's.
 pub fn resolve_dir(args: &[&str]) -> Res<PathBuf> {
-    if let Some(d) = flag(args, "--dir") {
-        return Ok(PathBuf::from(d));
+    match flag(args, "--dir") {
+        Some(d) => Ok(PathBuf::from(d)),
+        None => memory_dir(&std::env::current_dir()?),
     }
+}
+
+/// Links the project's memory folder into the vault and writes the vault's Base. It changes
+/// no Claude Code setting, so every worktree and every new session picks it up as it is.
+pub fn setup(args: &[&str]) -> Res {
     let vault = flag(args, "--vault")
         .map(PathBuf::from)
         .or_else(vault_from_env)
-        .ok_or("no memory folder: pass --dir, or --vault, or run inside the plugin")?;
-    Ok(memory_dir(&vault, &std::env::current_dir()?))
-}
-
-pub fn configured_dir(cwd: &Path) -> Option<PathBuf> {
-    let text = std::fs::read_to_string(settings_file(cwd)).ok()?;
-    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
-    v["autoMemoryDirectory"].as_str().map(PathBuf::from)
-}
-
-/// Creates the project's memory folder and the vault's Base. Changing Claude Code's
-/// settings is left to the setup skill, which asks the user first.
-pub fn setup(args: &[&str]) -> Res {
-    let vault = PathBuf::from(flag(args, "--vault").ok_or("setup needs --vault")?);
+        .ok_or("setup needs --vault")?;
     let cwd = flag(args, "--cwd")
         .map(PathBuf::from)
         .map_or_else(std::env::current_dir, Ok)?;
-    let dir = memory_dir(&vault, &cwd);
+    let dir = memory_dir(&cwd)?;
     std::fs::create_dir_all(&dir)?;
+    std::fs::create_dir_all(&vault)?;
+    let link = vault_link(&vault, &cwd);
+    if !is_linked(&vault, &cwd) {
+        if link.symlink_metadata().is_ok() {
+            return Err(format!(
+                "{} exists and is not a link to {}. Move its notes into that folder, remove it, and run setup again.",
+                link.display(),
+                dir.display()
+            )
+            .into());
+        }
+        std::os::unix::fs::symlink(&dir, &link)?;
+    }
     let base = vault.join("Memory.base");
     let wrote_base = !base.exists();
     if wrote_base {
         std::fs::write(&base, BASE_TEMPLATE)?;
     }
-    let old = default_memory_dir(&cwd).filter(|d| d.is_dir() && *d != dir);
     let report = serde_json::json!({
         "memory_dir": dir,
-        "settings_file": settings_file(&cwd),
-        "configured": configured_dir(&cwd).as_deref() == Some(dir.as_path()),
+        "vault_link": link,
         "base": base,
         "wrote_base": wrote_base,
-        "old_memory_dir": old,
     });
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slugs_match_claude_code() {
+        assert_eq!(
+            project_slug(Path::new("/Users/v/code/2501")),
+            "-Users-v-code-2501"
+        );
+        assert_eq!(
+            project_slug(Path::new("/Users/v/Library/Application Support/x.y")),
+            "-Users-v-Library-Application-Support-x-y"
+        );
+    }
 }

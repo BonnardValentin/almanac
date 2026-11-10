@@ -1,5 +1,5 @@
 use crate::log::now_secs;
-use crate::paths::{configured_dir, data_dir, memory_dir, vault_from_env};
+use crate::paths::{data_dir, is_linked, memory_dir, vault_from_env};
 use crate::{hook_input, mem, str_field, Res};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -85,16 +85,14 @@ fn prune_old_sessions(dir: &Path) {
 pub fn project_memory(cwd: &Path) -> Result<PathBuf, String> {
     let vault = vault_from_env()
         .ok_or("almanac: no vault is configured. Set one with /plugin configure almanac.")?;
-    let dir = memory_dir(&vault, cwd);
-    if configured_dir(cwd).as_deref() != Some(dir.as_path()) {
+    if !is_linked(&vault, cwd) {
         return Err(format!(
             "almanac: this project's memory is not in the vault yet. Run the almanac setup skill \
-             (`almanac setup --vault {}`). Memory folder: {}",
-            vault.display(),
-            dir.display()
+             (`almanac setup --vault {}`).",
+            vault.display()
         ));
     }
-    Ok(dir)
+    memory_dir(cwd).map_err(|e| e.to_string())
 }
 
 /// SessionStart: whatever it prints becomes context for the session.

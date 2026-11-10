@@ -29,7 +29,7 @@ The install asks for:
 - `gate_mode`: `off`, `shadow` (the default) or `enforce`.
 - `typesafe_api_key`: optional, see below.
 
-Then, in each project, start a session and run the `setup` skill. It creates the project's folder in the vault, points Claude Code's `autoMemoryDirectory` at it (after asking you), and migrates the existing notes as `stage: investigate`.
+Then, in each project, start a session and run the `setup` skill. The notes stay in Claude Code's own memory folder for the repository, which all its worktrees share, so Claude Code writes them without a permission prompt. The vault gets a symlink to that folder, named after the repository. Setup changes no Claude Code setting, and marks existing notes `stage: investigate`.
 
 ## The gate
 
